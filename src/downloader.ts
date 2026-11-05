@@ -1,8 +1,10 @@
 import { UPSTREAM_RELEASES_API, type ReleaseAssetInfo } from "./types.js";
 import { execSync } from "node:child_process";
-import { existsSync, mkdirSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, statSync, chmodSync, createWriteStream } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
+import { Readable } from "node:stream";
+import { pipeline } from "node:stream/promises";
 
 export async function fetchLatestReleaseAssets(): Promise<{ tag: string; assets: ReleaseAssetInfo[] }> {
   const res = await fetch(UPSTREAM_RELEASES_API, {
@@ -58,6 +60,29 @@ export function getLocalBinaryPath(): string {
   return join(homedir(), ".cli-proxy-api", binName);
 }
 
+/**
+ * Búsqueda recursiva nativa en Node.js de un archivo ejecutable,
+ * eliminando cualquier dependencia del comando 'find' de Unix.
+ */
+function findBinaryRecursively(dir: string, targetName: string): string | null {
+  if (!existsSync(dir)) return null;
+
+  const entries = readdirSync(dir, { withFileTypes: true });
+  for (const entry of entries) {
+    const fullPath = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      const nested = findBinaryRecursively(fullPath, targetName);
+      if (nested) return nested;
+    } else if (entry.isFile()) {
+      const lower = entry.name.toLowerCase();
+      if (lower === targetName.toLowerCase() || lower.startsWith("cliproxyapi")) {
+        return fullPath;
+      }
+    }
+  }
+  return null;
+}
+
 export async function downloadAndExtractOfficialBinary(onProgress?: (msg: string) => void): Promise<string> {
   const targetDir = join(homedir(), ".cli-proxy-api");
   mkdirSync(targetDir, { recursive: true });
@@ -76,24 +101,53 @@ export async function downloadAndExtractOfficialBinary(onProgress?: (msg: string
   onProgress?.(`Descargando binario oficial ${tag}: ${matchingAsset.name}...`);
   const archivePath = join(targetDir, matchingAsset.name);
 
-  // Descargar archivo oficial desde GitHub
-  execSync(`curl -fsSL "${matchingAsset.downloadUrl}" -o "${archivePath}"`, { stdio: "ignore" });
+  // Descarga nativa vía Node.js fetch (independiente de curl de SO)
+  const downloadRes = await fetch(matchingAsset.downloadUrl, {
+    headers: { "User-Agent": "Gentle-CPAMC-Bridge-Installer" }
+  });
+
+  if (!downloadRes.ok || !downloadRes.body) {
+    throw new Error(`Error al descargar binario desde GitHub: HTTP ${downloadRes.status}`);
+  }
+
+  const fileStream = createWriteStream(archivePath);
+  await pipeline(Readable.fromWeb(downloadRes.body as any), fileStream);
 
   onProgress?.("Descomprimiendo binario...");
-  if (matchingAsset.name.endsWith(".zip")) {
-    execSync(`unzip -o "${archivePath}" -d "${targetDir}"`, { stdio: "ignore" });
+  const isWindows = process.platform === "win32";
+
+  if (archivePath.endsWith(".zip")) {
+    if (isWindows) {
+      // Usar PowerShell nativo en Windows para descomprimir ZIP
+      execSync(`powershell.exe -NoProfile -Command "Expand-Archive -Path '${archivePath}' -DestinationPath '${targetDir}' -Force"`, { stdio: "ignore" });
+    } else {
+      execSync(`unzip -o -q "${archivePath}" -d "${targetDir}"`, { stdio: "ignore" });
+    }
   } else {
+    // Archivos .tar.gz (Linux / macOS)
     execSync(`tar -xzf "${archivePath}" -C "${targetDir}"`, { stdio: "ignore" });
   }
 
-  const binaryPath = getLocalBinaryPath();
-  if (!existsSync(binaryPath)) {
-    // Si se descomprimió con minúsculas o subcarpeta
-    execSync(`find "${targetDir}" -name "CLIProxyAPI*" -type f -exec chmod +x {} +`, { stdio: "ignore" });
-  } else {
-    execSync(`chmod +x "${binaryPath}"`, { stdio: "ignore" });
+  const expectedBinName = isWindows ? "CLIProxyAPI.exe" : "CLIProxyAPI";
+  let finalBinaryPath = join(targetDir, expectedBinName);
+
+  if (!existsSync(finalBinaryPath)) {
+    // Búsqueda nativa recursiva sin 'find'
+    const discovered = findBinaryRecursively(targetDir, expectedBinName);
+    if (discovered) {
+      finalBinaryPath = discovered;
+    }
   }
 
-  onProgress?.(`✓ CPAMC Oficial instalado con éxito en: ${binaryPath}`);
-  return binaryPath;
+  // Asignar permisos de ejecución en plataformas POSIX
+  if (!isWindows && existsSync(finalBinaryPath)) {
+    try {
+      chmodSync(finalBinaryPath, 0o755);
+    } catch {
+      // Ignorar fallo de chmod si no hay permisos
+    }
+  }
+
+  onProgress?.(`✓ CPAMC Oficial instalado con éxito en: ${finalBinaryPath}`);
+  return finalBinaryPath;
 }
