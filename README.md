@@ -16,6 +16,8 @@ Puente universal, instalador automatizado y adaptador de modelos para conectar *
 
 > 💬 **Comunidad y Soporte Oficial:** `wilox2` · [Servidor de Discord](https://bit.ly/48zTJUo)
 
+> 🤖 **Para Instalación Asistida por AI (Claude, Pi, Cursor):** Consulta estrictamente [AI_INSTALL.md](AI_INSTALL.md). Este paquete es un **Proveedor Headless**, NO debe generar widgets en chat.
+
 ---
 
 ## 🗺️ Flujo de Conexión en 5 Pasos
