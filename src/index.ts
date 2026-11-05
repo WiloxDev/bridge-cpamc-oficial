@@ -5,6 +5,7 @@ import { createCpamcStream } from "./provider.js";
 import { downloadAndExtractOfficialBinary, getLocalBinaryPath } from "./downloader.js";
 import { runCpamcDoctor, formatCpamcDoctorReport } from "./doctor.js";
 import { runCpamcWizard } from "./wizard.js";
+import { checkAllUpdates, executeAtomicCpamcUpdate } from "./updater.js";
 import { loadCpamcConfig, saveCpamcConfig } from "./config.js";
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
@@ -113,7 +114,31 @@ export default async function activate(api: ExtensionAPI): Promise<void> {
         return;
       }
 
-      ctx.ui?.notify("Comandos disponibles:\n/cpamc wizard (Asistente guiado)\n/cpamc install | /cpamc start\n/cpamc doctor | /cpamc refresh\n/cpamc set-url <url> | /cpamc set-key <token>\n/cpamc official", "info");
+      // /cpamc update -> Actualizador Atómico
+      if (sub === "update" || sub === "upgrade") {
+        ctx.ui?.notify("🔍 Comprobando actualizaciones oficiales...", "info");
+        try {
+          const status = await checkAllUpdates("1.0.2");
+          const lines: string[] = [];
+          lines.push(`📦 ESTADO DE ACTUALIZACIONES:`);
+          lines.push(`• CPAMC Upstream: Local ${status.currentCpamcTag || "no registrado"} ➔ Última oficial ${status.latestCpamcTag || "indisponible"}`);
+          lines.push(`• Bridge Extensión: Versión 1.0.2 ${status.bridgeUpdateAvailable ? `(Disponible v${status.latestBridgeVersion})` : "(Al día)"}`);
+
+          ctx.ui?.notify(lines.join("\n"), "info");
+
+          if (status.cpamcUpdateAvailable || !status.currentCpamcTag) {
+            ctx.ui?.notify("⏳ Iniciando actualización atómica del motor oficial de CPAMC...", "info");
+            await executeAtomicCpamcUpdate((msg) => ctx.ui?.notify(msg, "info"));
+          } else {
+            ctx.ui?.notify("✓ Tu motor CPAMC oficial ya se encuentra en la última versión.", "info");
+          }
+        } catch (err: any) {
+          ctx.ui?.notify(`✗ Error en la actualización: ${err?.message || err}`, "error");
+        }
+        return;
+      }
+
+      ctx.ui?.notify("Comandos disponibles:\n/cpamc wizard (Asistente guiado)\n/cpamc install | /cpamc start | /cpamc update\n/cpamc doctor | /cpamc refresh\n/cpamc set-url <url> | /cpamc set-key <token>\n/cpamc official", "info");
     }
   });
 }

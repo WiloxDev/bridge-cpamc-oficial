@@ -1,6 +1,6 @@
 {
   "name": "bridge-cpamc-oficial",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Puente, instalador y proveedor oficial de CPAMC (CLIProxyAPI) para Gentle Shell: descarga binarios oficiales de router-for-me, autodescubre modelos y conecta con Auto Switcher Pro.",
   "type": "module",
   "main": "./src/index.ts",
