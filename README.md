@@ -6,7 +6,7 @@
 
 [![Gentle Hub](https://img.shields.io/badge/Gentle%20Hub-Extension-F095C8?style=for-the-badge)](https://gentlemanprogramming.com/gentle-hub/)
 [![Upstream](https://img.shields.io/badge/Upstream-router--for--me%2FCLIProxyAPI-blue?style=for-the-badge&logo=github)](https://github.com/router-for-me/CLIProxyAPI)
-[![Discord](https://img.shields.io/badge/Discord-Apoyo-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://bit.ly/48zTJUo)
+[![Discord](https://img.shields.io/badge/Discord-Feedback%20%26%20Sugerencias-5865F2?style=for-the-badge&logo=discord&logoColor=white)](https://bit.ly/48zTJUo)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg?style=for-the-badge)](LICENSE)
 
 Puente universal, instalador automatizado y adaptador de modelos para conectar **Gentle Shell** y **Pi** con el proyecto oficial **CPAMC (CLIProxyAPI)**. Diseñado para cualquier sistema operativo (**Linux, macOS, Windows nativo**) y cualquier topología (**Binario local, Docker o VPS Remoto**).
@@ -14,7 +14,7 @@ Puente universal, instalador automatizado y adaptador de modelos para conectar *
 > 📌 **Repositorio Oficial Upstream:** [router-for-me/CLIProxyAPI](https://github.com/router-for-me/CLIProxyAPI)  
 > *Este repositorio es la puerta de entrada, instalador y asistente de integración para la comunidad de Gentle Shell y Gentle Hub. Todo el software y binarios descargados provienen directamente y sin alteraciones de los releases oficiales de `router-for-me`.*
 
-> 💬 **Comunidad y Soporte Oficial:** `wilox2` · [Servidor de Discord](https://bit.ly/48zTJUo)
+> 💬 **Feedback & Sugerencias:** `wilox2` · [Servidor de Discord](https://bit.ly/48zTJUo)
 
 > 🤖 **Para Instalación Asistida por AI (Claude, Pi, Cursor):** Consulta estrictamente [AI_INSTALL.md](AI_INSTALL.md). Este paquete es un **Proveedor Headless**, NO debe generar widgets en chat.
 
