@@ -7,8 +7,8 @@ import {
   type SimpleStreamOptions,
   type Usage
 } from "@earendil-works/pi-ai";
-import { PROVIDER_ID, UPSTREAM_REPO_URL } from "./types.js";
-import { loadCpamcConfig } from "./config.js";
+import { PROVIDER_ID, UPSTREAM_REPO_URL, DEFAULT_CPAMC_URL } from "./types.js";
+import { loadCpamcConfig, resolveOperationalCpamcUrl } from "./config.js";
 
 const EMPTY_USAGE: Usage = {
   input: 0,
@@ -32,11 +32,12 @@ export function createCpamcStream(
 ): AssistantMessageEventStream {
   const stream = createAssistantMessageEventStream();
   const config = loadCpamcConfig();
-  const baseUrl = config.baseUrl.replace(/\/$/, "");
 
   (async () => {
+    let activeBaseUrl = config.baseUrl || DEFAULT_CPAMC_URL;
     try {
-      const endpoint = `${baseUrl}/v1/chat/completions`;
+      activeBaseUrl = await resolveOperationalCpamcUrl(config.baseUrl || DEFAULT_CPAMC_URL);
+      const endpoint = `${activeBaseUrl.replace(/\/$/, "")}/v1/chat/completions`;
       const messages = (context.messages || []).map((m: any) => ({
         role: m.role,
         content: typeof m.content === "string" ? m.content : JSON.stringify(m.content)
@@ -147,7 +148,7 @@ export function createCpamcStream(
     } catch (err: any) {
       const isConnectionRefused = err?.message?.includes("ECONNREFUSED") || err?.cause?.code === "ECONNREFUSED";
       const message = isConnectionRefused
-        ? `No se pudo conectar con CPAMC en ${baseUrl}. Ejecuta '/cpamc wizard' o '/cpamc doctor' para diagnosticar.`
+        ? `No se pudo conectar con CPAMC en ${activeBaseUrl}. Ejecuta '/cpamc wizard' o '/cpamc doctor' para diagnosticar.`
         : (err?.message || "Error al conectar con CPAMC.");
 
       const assistantError: AssistantMessage = {

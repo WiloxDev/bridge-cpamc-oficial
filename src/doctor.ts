@@ -1,12 +1,13 @@
 import { existsSync } from "node:fs";
-import { UPSTREAM_REPO_URL, type DoctorCheckItem, type DoctorReport } from "./types.js";
+import { UPSTREAM_REPO_URL, DEFAULT_CPAMC_URL, type DoctorCheckItem, type DoctorReport } from "./types.js";
 import { getLocalBinaryPath } from "./downloader.js";
-import { loadCpamcConfig } from "./config.js";
+import { loadCpamcConfig, resolveOperationalCpamcUrl, isWslEnvironment } from "./config.js";
 
 export async function runCpamcDoctor(): Promise<DoctorReport> {
   const checks: DoctorCheckItem[] = [];
   const config = loadCpamcConfig();
-  const baseUrl = config.baseUrl.replace(/\/$/, "");
+  const configuredBaseUrl = config.baseUrl || DEFAULT_CPAMC_URL;
+  const baseUrl = (await resolveOperationalCpamcUrl(configuredBaseUrl)).replace(/\/$/, "");
 
   // 1. Verificación del modo de despliegue y binario (si aplica)
   if (config.deploymentType === "local_binary") {

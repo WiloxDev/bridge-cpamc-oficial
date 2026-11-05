@@ -1,6 +1,6 @@
 import type { Model } from "@earendil-works/pi-ai";
 import { DEFAULT_CPAMC_URL, PROVIDER_ID } from "./types.js";
-import { loadCpamcConfig } from "./config.js";
+import { loadCpamcConfig, resolveOperationalCpamcUrl } from "./config.js";
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
@@ -59,7 +59,8 @@ function getCachePath(): string {
 
 export async function fetchCpamcModels(customBaseUrl?: string): Promise<Model<any>[]> {
   const config = loadCpamcConfig();
-  const baseUrl = (customBaseUrl || config.baseUrl || DEFAULT_CPAMC_URL).replace(/\/$/, "");
+  const rawBaseUrl = customBaseUrl || config.baseUrl || DEFAULT_CPAMC_URL;
+  const baseUrl = (await resolveOperationalCpamcUrl(rawBaseUrl)).replace(/\/$/, "");
 
   try {
     const controller = new AbortController();
