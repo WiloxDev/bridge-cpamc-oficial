@@ -1,0 +1,12 @@
+services:
+  cpamc:
+    image: ghcr.io/router-for-me/cliproxyapi:latest
+    container_name: gentle-cpamc
+    restart: unless-stopped
+    ports:
+      - "8317:8317"
+    volumes:
+      - ./auths:/app/auths
+      - ./config.yaml:/app/config.yaml:ro
+    environment:
+      - TZ=UTC

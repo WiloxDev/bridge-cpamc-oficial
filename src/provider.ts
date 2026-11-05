@@ -7,7 +7,8 @@ import {
   type SimpleStreamOptions,
   type Usage
 } from "@earendil-works/pi-ai";
-import { DEFAULT_CPAMC_URL, PROVIDER_ID, UPSTREAM_REPO_URL } from "./types.js";
+import { PROVIDER_ID, UPSTREAM_REPO_URL } from "./types.js";
+import { loadCpamcConfig } from "./config.js";
 
 const EMPTY_USAGE: Usage = {
   input: 0,
@@ -30,11 +31,12 @@ export function createCpamcStream(
   options?: SimpleStreamOptions
 ): AssistantMessageEventStream {
   const stream = createAssistantMessageEventStream();
-  const baseUrl = DEFAULT_CPAMC_URL;
+  const config = loadCpamcConfig();
+  const baseUrl = config.baseUrl.replace(/\/$/, "");
 
   (async () => {
     try {
-      const endpoint = `${baseUrl.replace(/\/$/, "")}/v1/chat/completions`;
+      const endpoint = `${baseUrl}/v1/chat/completions`;
       const messages = (context.messages || []).map((m: any) => ({
         role: m.role,
         content: typeof m.content === "string" ? m.content : JSON.stringify(m.content)
@@ -46,11 +48,17 @@ export function createCpamcStream(
         stream: true
       };
 
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json"
+      };
+
+      if (config.apiKey) {
+        headers["Authorization"] = `Bearer ${config.apiKey}`;
+      }
+
       const res = await fetch(endpoint, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
+        headers,
         body: JSON.stringify(body)
       });
 
@@ -60,7 +68,7 @@ export function createCpamcStream(
           role: "assistant",
           content: [{
             type: "text",
-            text: `[Error CPAMC HTTP ${res.status}]: ${errorText || "Asegúrate de que CPAMC esté iniciado y tenga cuentas configuradas."}\nRepositorio oficial: ${UPSTREAM_REPO_URL}`
+            text: `[Error CPAMC HTTP ${res.status}]: ${errorText || "Asegúrate de que CPAMC esté iniciado y tenga cuentas configuradas."}\nUpstream oficial: ${UPSTREAM_REPO_URL}`
           }],
           api: "openai-responses",
           provider: PROVIDER_ID,
@@ -139,7 +147,7 @@ export function createCpamcStream(
     } catch (err: any) {
       const isConnectionRefused = err?.message?.includes("ECONNREFUSED") || err?.cause?.code === "ECONNREFUSED";
       const message = isConnectionRefused
-        ? "No se pudo conectar con CPAMC en http://127.0.0.1:8317. Ejecuta '/cpamc start' o '/cpamc install' para iniciar el servicio oficial."
+        ? `No se pudo conectar con CPAMC en ${baseUrl}. Ejecuta '/cpamc wizard' o '/cpamc doctor' para diagnosticar.`
         : (err?.message || "Error al conectar con CPAMC.");
 
       const assistantError: AssistantMessage = {

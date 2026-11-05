@@ -1,5 +1,6 @@
 import type { Model } from "@earendil-works/pi-ai";
 import { DEFAULT_CPAMC_URL, PROVIDER_ID } from "./types.js";
+import { loadCpamcConfig } from "./config.js";
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
@@ -56,12 +57,21 @@ function getCachePath(): string {
   return join(dir, "cpamc-models.json");
 }
 
-export async function fetchCpamcModels(baseUrl: string = DEFAULT_CPAMC_URL): Promise<Model<any>[]> {
+export async function fetchCpamcModels(customBaseUrl?: string): Promise<Model<any>[]> {
+  const config = loadCpamcConfig();
+  const baseUrl = (customBaseUrl || config.baseUrl || DEFAULT_CPAMC_URL).replace(/\/$/, "");
+
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 2000);
+    const timeout = setTimeout(() => controller.abort(), 2500);
 
-    const res = await fetch(`${baseUrl.replace(/\/$/, "")}/v1/models`, {
+    const headers: Record<string, string> = {};
+    if (config.apiKey) {
+      headers["Authorization"] = `Bearer ${config.apiKey}`;
+    }
+
+    const res = await fetch(`${baseUrl}/v1/models`, {
+      headers,
       signal: controller.signal
     });
     clearTimeout(timeout);
@@ -71,25 +81,40 @@ export async function fetchCpamcModels(baseUrl: string = DEFAULT_CPAMC_URL): Pro
       const rawList = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
 
       if (rawList.length > 0) {
-        const mapped: Model<any>[] = rawList.map((m: any) => ({
-          id: m.id || m.slug || "unknown-model",
-          name: `${m.display_name || m.name || m.id} (CPAMC)`,
-          provider: PROVIDER_ID,
-          api: "openai-responses",
-          baseUrl: `${baseUrl.replace(/\/$/, "")}/backend-api`,
-          cost: ZERO_COST,
-          contextWindow: m.context_window || 128_000,
-          maxTokens: 8_192,
-          reasoning: m.id?.includes("r1") || m.id?.includes("reasoner") || false,
-          input: ["text", "image"]
-        }));
+        const mapped: Model<any>[] = rawList.map((m: any) => {
+          const modelId = m.id || m.slug || "unknown-model";
+          const rawName = m.display_name || m.name || modelId;
+          const isReasoning = modelId.includes("r1") || modelId.includes("reasoner") || modelId.includes("o1") || modelId.includes("o3");
+          
+          let contextWindow = m.context_window || 128_000;
+          if (modelId.includes("claude")) contextWindow = 200_000;
+          if (modelId.includes("gemini")) contextWindow = 1_000_000;
+
+          // Etiqueta visual para la TUI
+          const tagPool = m.has_pool ? " [Pool Auto-Switch]" : "";
+          const tagReasoning = isReasoning ? " [Reasoning]" : "";
+          const displayName = `${rawName}${tagPool}${tagReasoning} (CPAMC)`;
+
+          return {
+            id: modelId,
+            name: displayName,
+            provider: PROVIDER_ID,
+            api: "openai-responses",
+            baseUrl: `${baseUrl}/backend-api`,
+            cost: ZERO_COST,
+            contextWindow,
+            maxTokens: modelId.includes("claude") ? 16_000 : 8_192,
+            reasoning: isReasoning,
+            input: ["text", "image"]
+          };
+        });
 
         writeFileSync(getCachePath(), JSON.stringify(mapped, null, 2), "utf-8");
         return mapped;
       }
     }
   } catch {
-    // CPAMC apagado o no responde; degradar a caché
+    // Si falla la conexión, degradar a caché
   }
 
   // Leer caché local si existe
@@ -99,7 +124,7 @@ export async function fetchCpamcModels(baseUrl: string = DEFAULT_CPAMC_URL): Pro
       const raw = readFileSync(cacheFile, "utf-8");
       return JSON.parse(raw);
     } catch {
-      // Ignorar error de caché
+      // Ignorar error de parsing
     }
   }
 

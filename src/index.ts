@@ -4,6 +4,8 @@ import { fetchCpamcModels } from "./models.js";
 import { createCpamcStream } from "./provider.js";
 import { downloadAndExtractOfficialBinary, getLocalBinaryPath } from "./downloader.js";
 import { runCpamcDoctor, formatCpamcDoctorReport } from "./doctor.js";
+import { runCpamcWizard } from "./wizard.js";
+import { loadCpamcConfig, saveCpamcConfig } from "./config.js";
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 
@@ -19,35 +21,43 @@ export default async function activate(api: ExtensionAPI): Promise<void> {
 
   // 2. Registro de comandos interactivos /cpamc
   api.registerCommand("cpamc", {
-    description: "Comandos del puente oficial CPAMC: /cpamc install, /cpamc start, /cpamc doctor, /cpamc refresh, /cpamc official",
+    description: "Puente oficial CPAMC: /cpamc wizard, /cpamc install, /cpamc start, /cpamc doctor, /cpamc refresh, /cpamc set-url",
     handler: async (args: string, ctx: ExtensionContext) => {
-      const sub = args.trim().toLowerCase();
+      const parts = args.trim().split(/\s+/);
+      const sub = (parts[0] || "").toLowerCase();
+      const param = parts.slice(1).join(" ");
 
-      // /cpamc official -> Muestra y enlaza al repositorio oficial
-      if (sub === "official" || sub === "repo") {
-        ctx.ui?.notify(`📌 Repositorio Oficial Upstream:\n${UPSTREAM_REPO_URL}\n\nCreado y mantenido por el equipo de router-for-me.`, "info");
+      // /cpamc wizard -> Asistente Híbrido Mixto
+      if (sub === "wizard" || sub === "setup") {
+        await runCpamcWizard(ctx);
         return;
       }
 
-      // /cpamc install -> Descarga el binario oficial directamente desde GitHub
+      // /cpamc official -> Enlace y créditos oficiales
+      if (sub === "official" || sub === "repo") {
+        ctx.ui?.notify(`📌 Repositorio Oficial Upstream:\n${UPSTREAM_REPO_URL}\n\nCreado y mantenido por router-for-me.`, "info");
+        return;
+      }
+
+      // /cpamc install -> Descarga el binario oficial según la arquitectura
       if (sub === "install") {
-        ctx.ui?.notify("⏳ Iniciando descarga del binario oficial desde router-for-me/CLIProxyAPI...", "info");
+        ctx.ui?.notify("⏳ Consultando releases oficiales de router-for-me/CLIProxyAPI...", "info");
         try {
           const binPath = await downloadAndExtractOfficialBinary((msg) => {
             ctx.ui?.notify(msg, "info");
           });
-          ctx.ui?.notify(`🎉 CPAMC instalado en ${binPath}. Ahora puedes ejecutar '/cpamc start' para iniciarlo.`, "info");
+          ctx.ui?.notify(`🎉 CPAMC instalado en ${binPath}. Ejecuta '/cpamc start' o '/cpamc wizard'.`, "info");
         } catch (err: any) {
           ctx.ui?.notify(`✗ Error en la descarga oficial: ${err?.message || err}`, "error");
         }
         return;
       }
 
-      // /cpamc start -> Inicia el binario en segundo plano
+      // /cpamc start -> Inicia el binario local en segundo plano
       if (sub === "start") {
         const binPath = getLocalBinaryPath();
         if (!existsSync(binPath)) {
-          ctx.ui?.notify("El binario oficial de CPAMC no está instalado. Ejecuta primero '/cpamc install'.", "warning");
+          ctx.ui?.notify("El binario oficial de CPAMC no está instalado. Ejecuta '/cpamc install' o '/cpamc wizard'.", "warning");
           return;
         }
 
@@ -58,14 +68,15 @@ export default async function activate(api: ExtensionAPI): Promise<void> {
           });
           child.unref();
 
-          ctx.ui?.notify(`🚀 CPAMC iniciado en segundo plano (PID: ${child.pid}).\nConsola web: ${DEFAULT_CPAMC_URL}/management.html`, "info");
+          const config = loadCpamcConfig();
+          ctx.ui?.notify(`🚀 CPAMC iniciado (PID: ${child.pid}).\nConsola web: ${config.baseUrl || DEFAULT_CPAMC_URL}/management.html`, "info");
         } catch (err: any) {
           ctx.ui?.notify(`Error al iniciar CPAMC: ${err?.message || err}`, "error");
         }
         return;
       }
 
-      // /cpamc doctor -> Comprobación completa
+      // /cpamc doctor -> Diagnóstico exhaustivo
       if (sub === "doctor" || sub === "status") {
         const report = await runCpamcDoctor();
         const text = formatCpamcDoctorReport(report);
@@ -73,14 +84,36 @@ export default async function activate(api: ExtensionAPI): Promise<void> {
         return;
       }
 
-      // /cpamc refresh -> Refresca modelos
+      // /cpamc refresh -> Refresca y balancea modelos
       if (sub === "refresh") {
         const models = await fetchCpamcModels();
-        ctx.ui?.notify(`✓ Catálogo actualizado. ${models.length} modelos detectados desde CPAMC.`, "info");
+        ctx.ui?.notify(`✓ Catálogo actualizado. ${models.length} modelos listados orgánicamente en /model.`, "info");
         return;
       }
 
-      ctx.ui?.notify("Uso: /cpamc install | /cpamc start | /cpamc doctor | /cpamc refresh | /cpamc official", "info");
+      // /cpamc set-url <url> -> Para Docker o VPS remoto
+      if (sub === "set-url") {
+        if (!param) {
+          ctx.ui?.notify("Debes indicar una URL. Ejemplo: /cpamc set-url http://192.168.1.50:8317", "warning");
+          return;
+        }
+        const updated = saveCpamcConfig({ baseUrl: param, deploymentType: param.includes("127.0.0.1") || param.includes("localhost") ? "local_binary" : "remote_vps" });
+        ctx.ui?.notify(`✓ CPAMC URL configurada a: ${updated.baseUrl}`, "info");
+        return;
+      }
+
+      // /cpamc set-key <token> -> Para VPS remoto con autenticación
+      if (sub === "set-key") {
+        if (!param) {
+          ctx.ui?.notify("Debes indicar un token. Ejemplo: /cpamc set-key TU_TOKEN", "warning");
+          return;
+        }
+        saveCpamcConfig({ apiKey: param });
+        ctx.ui?.notify(`✓ Token de autenticación de CPAMC guardado de forma segura.`, "info");
+        return;
+      }
+
+      ctx.ui?.notify("Comandos disponibles:\n/cpamc wizard (Asistente guiado)\n/cpamc install | /cpamc start\n/cpamc doctor | /cpamc refresh\n/cpamc set-url <url> | /cpamc set-key <token>\n/cpamc official", "info");
     }
   });
 }

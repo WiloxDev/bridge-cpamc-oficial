@@ -1,55 +1,76 @@
 import { existsSync } from "node:fs";
-import { DEFAULT_CPAMC_URL, UPSTREAM_REPO_URL, type DoctorCheckItem, type DoctorReport } from "./types.js";
+import { UPSTREAM_REPO_URL, type DoctorCheckItem, type DoctorReport } from "./types.js";
 import { getLocalBinaryPath } from "./downloader.js";
+import { loadCpamcConfig } from "./config.js";
 
 export async function runCpamcDoctor(): Promise<DoctorReport> {
   const checks: DoctorCheckItem[] = [];
+  const config = loadCpamcConfig();
+  const baseUrl = config.baseUrl.replace(/\/$/, "");
 
-  // 1. Verificación del binario oficial
-  const binPath = getLocalBinaryPath();
-  const binInstalled = existsSync(binPath);
+  // 1. Verificación del modo de despliegue y binario (si aplica)
+  if (config.deploymentType === "local_binary") {
+    const binPath = getLocalBinaryPath();
+    const binInstalled = existsSync(binPath);
 
-  if (binInstalled) {
-    checks.push({
-      title: "Binario Oficial de CPAMC",
-      ok: true,
-      details: `Instalado en ${binPath}`
-    });
+    if (binInstalled) {
+      checks.push({
+        title: "Binario Oficial de CPAMC (Local)",
+        ok: true,
+        details: `Instalado en ${binPath}`
+      });
+    } else {
+      checks.push({
+        title: "Binario Oficial de CPAMC (Local)",
+        ok: false,
+        details: "No se encontró el binario oficial en el sistema.",
+        suggestion: "Ejecuta '/cpamc install' o '/cpamc wizard' para descargarlo de router-for-me/CLIProxyAPI."
+      });
+    }
   } else {
     checks.push({
-      title: "Binario Oficial de CPAMC",
-      ok: false,
-      details: "No se encontró el binario oficial en ~/.cli-proxy-api/",
-      suggestion: "Ejecuta '/cpamc install' para descargarlo automáticamente de router-for-me/CLIProxyAPI."
+      title: `Modo de Despliegue (${config.deploymentType.toUpperCase()})`,
+      ok: true,
+      details: `Configurado hacia ${baseUrl}`
     });
   }
 
-  // 2. Verificación del servicio en el puerto 8317
+  // 2. Verificación del endpoint del servicio
   let serviceOnline = false;
+  let modelCount = 0;
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 1500);
-    const res = await fetch(`${DEFAULT_CPAMC_URL}/v1/models`, { signal: controller.signal });
+    const timeout = setTimeout(() => controller.abort(), 2000);
+    const headers: Record<string, string> = {};
+    if (config.apiKey) headers["Authorization"] = `Bearer ${config.apiKey}`;
+
+    const res = await fetch(`${baseUrl}/v1/models`, { headers, signal: controller.signal });
     clearTimeout(timeout);
-    serviceOnline = res.ok;
+    
+    if (res.ok) {
+      serviceOnline = true;
+      const data: any = await res.json();
+      const list = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
+      modelCount = list.length;
+    }
   } catch {
     serviceOnline = false;
   }
 
   if (serviceOnline) {
     checks.push({
-      title: "Servidor Local CPAMC (Puerto 8317)",
+      title: "Servidor CPAMC Activo",
       ok: true,
-      details: `Servicio activo y respondiendo en ${DEFAULT_CPAMC_URL}`
+      details: `Respondiendo en ${baseUrl} (${modelCount} modelos disponibles en el catálogo)`
     });
   } else {
     checks.push({
-      title: "Servidor Local CPAMC (Puerto 8317)",
+      title: "Servidor CPAMC Activo",
       ok: false,
-      details: "El servicio no responde en http://127.0.0.1:8317",
-      suggestion: binInstalled 
-        ? "Ejecuta '/cpamc start' para levantar el servicio oficial en segundo plano."
-        : "Ejecuta '/cpamc install' para descargar e iniciar CPAMC."
+      details: `No se pudo conectar a ${baseUrl}`,
+      suggestion: config.deploymentType === "local_binary"
+        ? "Ejecuta '/cpamc start' para levantarlo en segundo plano."
+        : "Verifica que el contenedor Docker o VPS esté corriendo y accesible."
     });
   }
 
@@ -73,7 +94,7 @@ export async function runCpamcDoctor(): Promise<DoctorReport> {
     ok: upstreamOk,
     details: upstreamOk 
       ? `Conexión fluida con ${UPSTREAM_REPO_URL}` 
-      : "No se pudo consultar el repositorio oficial de router-for-me (posible límite de API de GitHub o sin red)."
+      : "No se pudo consultar GitHub Releases (posible corte de internet o rate-limit anónimo)."
   });
 
   const allPassed = checks.every(c => c.ok);
@@ -86,7 +107,7 @@ export async function runCpamcDoctor(): Promise<DoctorReport> {
 
 export function formatCpamcDoctorReport(report: DoctorReport): string {
   const lines: string[] = [];
-  lines.push("\n🩺 DIAGNÓSTICO DE BRIDGE CPAMC OFICIAL");
+  lines.push("\n🩺 DIAGNÓSTICO UNIVERSAL DE BRIDGE CPAMC");
   lines.push("========================================");
   lines.push(`📌 Upstream Oficial: ${UPSTREAM_REPO_URL}\n`);
 
@@ -100,8 +121,8 @@ export function formatCpamcDoctorReport(report: DoctorReport): string {
 
   lines.push("========================================");
   lines.push(report.allPassed 
-    ? "🎉 Todo listo. CPAMC está conectado y operando con Gentle Shell." 
-    : "⚠️ Revisa las sugerencias para completar la conexión."
+    ? "🎉 Todo en orden. CPAMC está operando y enlazado con Gentle Shell." 
+    : "⚠️ Revisa las sugerencias para corregir la conexión."
   );
 
   return lines.join("\n");
