@@ -1,0 +1,51 @@
+{
+  "name": "bridge-cpamc-oficial",
+  "version": "1.0.0",
+  "description": "Puente, instalador y proveedor oficial de CPAMC (CLIProxyAPI) para Gentle Shell: descarga binarios oficiales de router-for-me, autodescubre modelos y conecta con Auto Switcher Pro.",
+  "type": "module",
+  "main": "./src/index.ts",
+  "keywords": [
+    "pi-package",
+    "pi-extension",
+    "gentle-shell-package",
+    "gentle-shell-extension",
+    "gentle-hub-project",
+    "cpamc",
+    "cliproxyapi",
+    "ai"
+  ],
+  "author": "Wilox",
+  "license": "MIT",
+  "pi": {
+    "extensions": [
+      "./src/index.ts"
+    ],
+    "image": "https://raw.githubusercontent.com/WiloxDev/bridge-cpamc-oficial/main/assets/logo.png"
+  },
+  "files": [
+    "src",
+    "scripts",
+    "assets",
+    "README.md",
+    "LICENSE",
+    "package.json"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-ai": ">=0.86.0",
+    "@earendil-works/pi-coding-agent": ">=0.86.0",
+    "@earendil-works/pi-tui": ">=0.86.0"
+  },
+  "devDependencies": {
+    "@earendil-works/pi-ai": "^1.4.0",
+    "@earendil-works/pi-coding-agent": "^1.4.0",
+    "@earendil-works/pi-tui": "^1.4.0",
+    "@types/node": "^24.3.0",
+    "typescript": "^6.0.3"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
