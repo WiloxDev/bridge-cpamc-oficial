@@ -1,5 +1,5 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
-import { PROVIDER_ID, PROVIDER_NAME, UPSTREAM_REPO_URL, DEFAULT_CPAMC_URL } from "./types.js";
+import { PROVIDER_ID, PROVIDER_NAME, PROVIDER_API, UPSTREAM_REPO_URL, DEFAULT_CPAMC_URL } from "./types.js";
 import { fetchCpamcModels } from "./models.js";
 import { createCpamcStream } from "./provider.js";
 import { downloadAndExtractOfficialBinary, getLocalBinaryPath } from "./downloader.js";
@@ -16,6 +16,7 @@ export default async function activate(api: ExtensionAPI): Promise<void> {
   // 1. Registro del proveedor oficial de CPAMC
   api.registerProvider(PROVIDER_ID, {
     name: PROVIDER_NAME,
+    api: PROVIDER_API,
     models: initialModels,
     streamSimple: createCpamcStream
   });

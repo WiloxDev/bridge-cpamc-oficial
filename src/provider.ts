@@ -7,7 +7,7 @@ import {
   type SimpleStreamOptions,
   type Usage
 } from "@earendil-works/pi-ai";
-import { PROVIDER_ID, UPSTREAM_REPO_URL, DEFAULT_CPAMC_URL } from "./types.js";
+import { PROVIDER_ID, PROVIDER_API, UPSTREAM_REPO_URL, DEFAULT_CPAMC_URL } from "./types.js";
 import { loadCpamcConfig, resolveOperationalCpamcUrl } from "./config.js";
 
 const EMPTY_USAGE: Usage = {
@@ -71,7 +71,7 @@ export function createCpamcStream(
             type: "text",
             text: `[Error CPAMC HTTP ${res.status}]: ${errorText || "Asegúrate de que CPAMC esté iniciado y tenga cuentas configuradas."}\nUpstream oficial: ${UPSTREAM_REPO_URL}`
           }],
-          api: "openai-responses",
+          api: PROVIDER_API,
           provider: PROVIDER_ID,
           model: model.id,
           usage: EMPTY_USAGE,
@@ -100,7 +100,7 @@ export function createCpamcStream(
       const getPartialAssistant = (): AssistantMessage => ({
         role: "assistant",
         content: [{ type: "text", text: accumulatedText }],
-        api: "openai-responses",
+        api: PROVIDER_API,
         provider: PROVIDER_ID,
         model: model.id,
         usage: EMPTY_USAGE,
@@ -154,7 +154,7 @@ export function createCpamcStream(
       const assistantError: AssistantMessage = {
         role: "assistant",
         content: [{ type: "text", text: `[CPAMC]: ${message}` }],
-        api: "openai-responses",
+        api: PROVIDER_API,
         provider: PROVIDER_ID,
         model: model.id,
         usage: EMPTY_USAGE,

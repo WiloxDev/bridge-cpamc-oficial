@@ -1,5 +1,5 @@
 import type { Model } from "@earendil-works/pi-ai";
-import { DEFAULT_CPAMC_URL, PROVIDER_ID } from "./types.js";
+import { DEFAULT_CPAMC_URL, PROVIDER_ID, PROVIDER_API } from "./types.js";
 import { loadCpamcConfig, resolveOperationalCpamcUrl } from "./config.js";
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
@@ -17,7 +17,7 @@ const DEFAULT_FALLBACK_MODELS: Model<any>[] = [
     id: "deepseek-chat",
     name: "DeepSeek V3 (via CPAMC)",
     provider: PROVIDER_ID,
-    api: "openai-responses",
+    api: PROVIDER_API,
     baseUrl: `${DEFAULT_CPAMC_URL}/backend-api`,
     cost: ZERO_COST,
     contextWindow: 128_000,
@@ -29,7 +29,7 @@ const DEFAULT_FALLBACK_MODELS: Model<any>[] = [
     id: "deepseek-reasoner",
     name: "DeepSeek R1 (via CPAMC)",
     provider: PROVIDER_ID,
-    api: "openai-responses",
+    api: PROVIDER_API,
     baseUrl: `${DEFAULT_CPAMC_URL}/backend-api`,
     cost: ZERO_COST,
     contextWindow: 128_000,
@@ -41,7 +41,7 @@ const DEFAULT_FALLBACK_MODELS: Model<any>[] = [
     id: "claude-3-5-sonnet",
     name: "Claude 3.5 Sonnet (via CPAMC)",
     provider: PROVIDER_ID,
-    api: "openai-responses",
+    api: PROVIDER_API,
     baseUrl: `${DEFAULT_CPAMC_URL}/backend-api`,
     cost: ZERO_COST,
     contextWindow: 200_000,
@@ -100,7 +100,7 @@ export async function fetchCpamcModels(customBaseUrl?: string): Promise<Model<an
             id: modelId,
             name: displayName,
             provider: PROVIDER_ID,
-            api: "openai-responses",
+            api: PROVIDER_API,
             baseUrl: `${baseUrl}/backend-api`,
             cost: ZERO_COST,
             contextWindow,

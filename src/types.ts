@@ -1,5 +1,6 @@
 export const PROVIDER_ID = "cpamc";
 export const PROVIDER_NAME = "CPAMC (Official)";
+export const PROVIDER_API = "openai-responses";
 export const UPSTREAM_REPO_URL = "https://github.com/router-for-me/CLIProxyAPI";
 export const UPSTREAM_RELEASES_API = "https://api.github.com/repos/router-for-me/CLIProxyAPI/releases/latest";
 export const DEFAULT_CPAMC_URL = "http://127.0.0.1:8317";
